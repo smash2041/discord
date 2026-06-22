@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import requests
 import socket
 import os
+import json
 
 # Discord bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -17,7 +18,6 @@ PORT = int(os.getenv('PORT', 5000))  # Environment variable se port le, nahi to 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Dummy connect to get local IP
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
     except Exception:
@@ -51,18 +51,27 @@ async def fetch_api(ctx, *, term):
         response = requests.get(API_URL, params=params)
         if response.status_code == 200:
             data = response.json()
-            await ctx.send(f"Result: {data}")
+            # Pretty print JSON data
+            formatted_data = json.dumps(data, indent=2)
+            # Limit message length to avoid exceeding Discord limit
+            if len(formatted_data) > 1900:
+                await ctx.send("Data too long to display.")
+            else:
+                await ctx.send(f"Result:\n```json\n{formatted_data}\n```")
         else:
-            await ctx.send("Failed to get data from external API.")
+            await ctx.send(f"Failed to get data from API. Status code: {response.status_code}")
     except Exception as e:
-        await ctx.send(f"Error: {str(e)}")
+        await ctx.send(f"Error occurred: {str(e)}")
 
 # Keep-alive task
 @tasks.loop(minutes=5)
 async def keep_alive():
     try:
-        response = requests.get(KEEP_ALIVE_URL)
-        print("Keep-alive ping sent to:", KEEP_ALIVE_URL)
+        res = requests.get(KEEP_ALIVE_URL)
+        if res.status_code == 200:
+            print("Keep-alive ping sent successfully.")
+        else:
+            print(f"Keep-alive ping failed with status code: {res.status_code}")
     except Exception as e:
         print(f"Error in keep-alive: {str(e)}")
 
@@ -72,4 +81,10 @@ async def on_ready():
     keep_alive.start()
 
 # Run bot
-bot.run(TOKEN)
+if TOKEN:
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"Error starting bot: {str(e)}")
+else:
+    print("Error: DISCORD_BOT_TOKEN environment variable not set.")
