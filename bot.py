@@ -4,6 +4,14 @@ import requests
 import socket
 import os
 import json
+from flask import Flask
+
+# Flask app setup
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot server is running!"
 
 # Discord bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -80,11 +88,18 @@ async def on_ready():
     print(f'Logged in as {bot.user}')
     keep_alive.start()
 
-# Run bot
-if TOKEN:
-    try:
-        bot.run(TOKEN)
-    except Exception as e:
-        print(f"Error starting bot: {str(e)}")
-else:
-    print("Error: DISCORD_BOT_TOKEN environment variable not set.")
+# Run Flask app in a separate thread
+if __name__ == '__main__':
+    import threading
+    def run_flask():
+        app.run(host='0.0.0.0', port=PORT)
+    
+    threading.Thread(target=run_flask).start()
+    # Run bot
+    if TOKEN:
+        try:
+            bot.run(TOKEN)
+        except Exception as e:
+            print(f"Error starting bot: {str(e)}")
+    else:
+        print("Error: DISCORD_BOT_TOKEN environment variable not set.")
